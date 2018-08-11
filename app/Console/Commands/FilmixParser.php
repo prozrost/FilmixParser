@@ -16,7 +16,7 @@ class FilmixParser extends Command
      *
      * @var string
      */
-    protected $signature = 'parsing-filmix {requiredNewActors=100}';
+    protected $signature = 'store-filmix-actors {requiredNewActors=100}';
 
     /**
      * The console command description.
@@ -58,11 +58,11 @@ class FilmixParser extends Command
         $this->parseActors($crawler, $client);
     }
 
-    private function parseActors(Crawler $crawler, Client $client, $parsedPersonCount = 0)
+    private function parseActors(Crawler $crawler, Client $client)
     {
         $requiredNewActors = $this->argument('requiredNewActors');
 
-        $crawler->filter(".shortstory")->each(function ($shortstory, $position) use ($client, $parsedPersonCount, $requiredNewActors) {
+        $crawler->filter(".shortstory")->each(function ($shortstory) use ($client, $requiredNewActors) {
             $actorData = $this->getActorData($shortstory, $client);
 
             $localActor = Actor::where('origin_name', $actorData['origin_name'])->first();
@@ -78,8 +78,8 @@ class FilmixParser extends Command
         });
             if ($this->newActorsCount < $requiredNewActors) {
                 $this->startingPage++;
-                $crawler = $client->request('GET', $this->filmixUrl . $this->startingPage);
-                $this->parseActors($crawler, $client, $parsedPersonCount);
+                $crawler = $client->request('GET', $this->filmixPersonsUrl . $this->startingPage);
+                $this->parseActors($crawler, $client);
             }
     }
 
@@ -100,15 +100,15 @@ class FilmixParser extends Command
                 ->eq(1)
                 ->text()
         ];
-        foreach ($actorData as $actorDataField) {
-            strip_tags($actorDataField);
+        foreach ($actorData as $key => $actorDataField) {
+            $actorData[$key] = strip_tags($actorDataField);
         }
 
         $personInfoCrawler = $client->request('GET', $actorLink);
         try {
             $biography = $personInfoCrawler->filter(".about")->text();
             $actorData = array_merge($actorData, ['additional_info' => json_encode(
-                ['biography' => $this->satitizeBiography($biography)],  JSON_UNESCAPED_UNICODE)
+                ['biography' => $this->sanitizeBiography($biography)],  JSON_UNESCAPED_UNICODE)
             ]);
             return $actorData;
         } catch (\InvalidArgumentException $exception) {
@@ -118,6 +118,7 @@ class FilmixParser extends Command
 
     private function logActorInfo(array $actorData)
     {
+        $this->info("Found new actor with name: {$actorData['origin_name']}");
         $this->logger->addInfo("Actor parsed at: ". now()->toDateTimeString());
         $this->logger->addInfo("Actor origin name: {$actorData['origin_name']}");
     }
@@ -127,7 +128,7 @@ class FilmixParser extends Command
 
         $russianMonths = [
             'января',
-            'фервраля',
+            'февраля',
             'марта',
             'апреля',
             'мая',
@@ -158,7 +159,7 @@ class FilmixParser extends Command
         return date("Y-m-d", strtotime($date));
     }
 
-    private function satitizeBiography($biography)
+    private function sanitizeBiography($biography)
     {
         $biography = strip_tags($biography);
         $biography = str_replace(["\r", "\n"], "", $biography);
