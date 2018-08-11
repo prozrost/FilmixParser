@@ -19,9 +19,10 @@ class CreateActorTable extends Migration
             $table->string('origin_name');
             $table->string('person_link');
             $table->string('poster_url');
-            $table->string('date_of_birth');
+            $table->date('date_of_birth');
             $table->string('place_of_birth');
-            $table->text('biography')->nullable();
+            $table->text('additional_info')->nullable();
+            $table->index('origin_name');
             $table->timestamps();
         });
     }

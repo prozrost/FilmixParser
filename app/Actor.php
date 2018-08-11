@@ -13,6 +13,6 @@ class Actor extends Model
         'poster_url',
         'date_of_birth',
         'place_of_birth',
-        'biography'
+        'additional_info'
     ];
 }
